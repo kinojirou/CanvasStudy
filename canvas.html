@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<script>
+		document.addEventListener("DOMContentLoaded",function(event){
+			// 処理を設定
+			flow.setList([
+				["lineHorizon", "Start"],
+				["circleTurn"],
+				["circleTurn", "#ff8c00"],
+				["lineDiamonds"],
+				["reactTurn"],
+				["circleWiden", "#FFFF00"],
+				["circleWiden", "#FFC0CB"],
+				["text", "End", "#FFC0CB"]
+			]);
+
+			// 実行
+			flow.start();
+		},false);
+
+		// フロー
+		var flow = {
+			list : [],
+			idx : 0,
+			setList : function(list) {
+				flow.list = list;
+			},
+			start : function() {
+				canvas.start();
+				flow.exe();
+				flow.idx += 1;
+			},
+			next : function() {
+				if (flow.list.length === flow.idx) {
+					return;
+				}
+				flow.exe();
+				flow.idx += 1;
+			},
+			exe : function() {
+				var target = canvas[flow.list[flow.idx][0]];
+				target.start.apply(target, flow.list[flow.idx].slice(1));
+			}
+		};
+
+		// タイマー
+		var timer = {
+			idx : 0,
+			clear : function() {
+				this.idx = 0;
+			},
+			next : function() {
+				return this.idx++ * 30;		// だいたい30fpsぐらい
+			}
+		};
+
+		// Cnavas
+		var canvas = {
+			ctx : null,
+			width : null,
+			height : null,
+			start : function() {
+				var canvasElm = document.getElementById('canvas5');
+				this.ctx = canvasElm.getContext('2d');
+				this.width = canvasElm.width;
+				this.height = canvasElm.height;
+			},
+
+			// 円回転
+			circleTurn : {
+				draw : function(begin, end) {
+					canvas.ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+					var x = canvas.width / 2;
+					var y = canvas.height / 2;
+					var radius = 400;
+
+					canvas.ctx.beginPath();
+					canvas.ctx.arc(x, y, radius, Math.PI*begin, Math.PI*end, true);
+					canvas.ctx.stroke();
+
+					canvas.ctx.beginPath();
+					canvas.ctx.arc(x, y, radius - 20, Math.PI*(begin-0.4), Math.PI*(end-0.1), true);
+					canvas.ctx.stroke();
+
+					canvas.ctx.beginPath();
+					canvas.ctx.arc(x, y, radius - 40, Math.PI*(begin-0.8), Math.PI*(end-0.2), true);
+					canvas.ctx.stroke();
+				},
+				start : function(style) {
+					// 共通設定
+					canvas.ctx.lineWidth = 3;
+					canvas.ctx.strokeStyle = style || "#00ffff";
+
+					timer.clear();
+					var idx = 0;
+					for (var i=0; i<=20; i+=1) {
+						idx = i / 10;
+						setTimeout(this.draw, timer.next(), idx-1, idx);
+					}
+
+					setTimeout(flow.next, timer.next());
+				}
+			},
+
+			// 平行線
+			lineHorizon : {
+				getBegin : function(time, timelag, length) {
+					if (time - timelag < length) {
+						return 0;
+					} else {
+						return time - length - timelag;
+					}
+				},
+				getEnd : function(time, timelag, endpoint) {
+					return (time - timelag < endpoint) ? time - timelag : endpoint;
+				},
+				draw : function(time, maxlength, endpoint, text) {
+					canvas.ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+					var begin, end, timelag;
+					var center = canvas.height / 2;
+
+					timelag = 550;
+					begin = canvas.lineHorizon.getBegin(time, timelag, maxlength);
+					end = canvas.lineHorizon.getEnd(time, timelag, endpoint);
+					if (time >= timelag && begin < endpoint) {
+						canvas.ctx.strokeStyle = "#808080";
+						canvas.ctx.beginPath();
+						canvas.ctx.moveTo(begin, center - 10);
+						canvas.ctx.lineTo(end, center - 10);
+						canvas.ctx.stroke();
+					}
+
+					timelag = 0;
+					begin = canvas.lineHorizon.getBegin(time, timelag, 1200);
+					end = canvas.lineHorizon.getEnd(time, timelag, endpoint);
+					if (time >= timelag && begin < endpoint) {
+						canvas.ctx.strokeStyle = "#ff1493";
+						canvas.ctx.beginPath();
+						canvas.ctx.moveTo(begin, center);
+						canvas.ctx.lineTo(end, center);
+						canvas.ctx.stroke();
+					}
+
+					timelag = 600;
+					begin = canvas.lineHorizon.getBegin(time, timelag, maxlength);
+					end = canvas.lineHorizon.getEnd(time, timelag, endpoint);
+					if (time >= timelag && begin < endpoint) {
+						canvas.ctx.strokeStyle = "#808080";
+						canvas.ctx.beginPath();
+						canvas.ctx.moveTo(begin, center + 10);
+						canvas.ctx.lineTo(end, center + 10);
+						canvas.ctx.stroke();
+					}
+
+					if (text) {
+						canvas.ctx.font = "230px 'ＭＳ ゴシック'";
+						canvas.ctx.textAlign = "center";
+						canvas.ctx.textBaseline = "middle";
+						canvas.ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+						canvas.ctx.fillStyle = "#00ffff";
+					}
+				},
+				start : function(text) {
+					// 共通設定
+					canvas.ctx.lineWidth = 2;
+
+					var maxlength = 700;
+					var endpoint = 950;
+					var timelag = 600;
+
+					timer.clear();
+					for (var i=0; i<=maxlength + endpoint + timelag; i+=50) {
+						setTimeout(this.draw, timer.next(), i, maxlength, endpoint, text);
+					}
+
+					setTimeout(flow.next, timer.next());
+				}
+			},
+
+			// 円拡大
+			circleWiden : {
+				draw : function(time, radius, x, y) {
+					canvas.ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+					var per = time / radius;
+					canvas.ctx.lineWidth = 35 * (1 - per) + 2;
+
+					canvas.ctx.beginPath();
+					canvas.ctx.arc(x, y, time, 0, Math.PI*2, true);
+					canvas.ctx.stroke();
+				},
+				start : function(style, radius, x, y) {
+					// 共通設定
+					canvas.ctx.strokeStyle = style || "#fff";
+					canvas.ctx.fillStyle = style || "#fff";
+
+					radius = radius || 800;
+					x = x || canvas.width / 2;
+					y = y || canvas.height / 2;
+
+					var speed = 20;
+
+					timer.clear();
+					for (var i=0; i<=radius; i+=speed) {
+						setTimeout(this.draw, timer.next(), i, radius, x, y);
+
+						if (i >= 50) {
+							speed = 40;
+						} else if (i >= 200) {
+							speed = 80;
+						}
+					}
+
+					setTimeout(flow.next, timer.next());
+				}
+			},
+
+			// ダイヤ
+			lineDiamonds : {
+				draw : function(time) {
+					canvas.ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+					var lines = [];
+
+					var x = 950;
+					var y = canvas.height / 2;
+
+					canvas.ctx.beginPath();
+					canvas.ctx.moveTo(x, y);
+
+					if (time <= 350) {
+						lines.push({
+							x : 950 - time,
+							y : 350 - time
+						});
+					} else if (time <= 700) {
+						lines.push({x : 600, y : 0});
+						lines.push({
+							x : 950 - time,
+							y : time - 350
+						});
+					} else if (time <= 1050) {
+						lines.push({x : 600, y : 0});
+						lines.push({x : 250, y : 350});
+						lines.push({
+							x : 250 + time - 700,
+							y : 350 + time - 700
+						});
+					} else {
+						lines.push({x : 600, y : 0});
+						lines.push({x : 250, y : 350});
+						lines.push({x : 600, y : 700});
+						lines.push({
+							x : 600 + time - 1050,
+							y : 700 - (time - 1050)
+						});
+					}
+
+					for (var i=0; i<lines.length; i++) {
+						canvas.ctx.lineTo(lines[i].x, lines[i].y);
+					}
+
+					canvas.ctx.stroke();
+				},
+				start : function(style) {
+					// 共通設定
+					canvas.ctx.lineWidth = 3;
+					canvas.ctx.strokeStyle = style || "#808";
+
+					timer.clear();
+					for (var i=0; i<=1400; i+=70) {
+						setTimeout(this.draw, timer.next(), i);
+					}
+
+					setTimeout(flow.next, timer.next());
+				}
+			},
+
+			// 回転
+			reactTurn : {
+				draw : function(time) {
+					canvas.ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+					canvas.ctx.translate(canvas.width / 2, canvas.height / 2);
+					canvas.ctx.rotate(time * Math.PI / 180)
+
+					canvas.ctx.beginPath();
+					canvas.ctx.moveTo(0, -350);
+					canvas.ctx.lineTo(-350, 0);
+					canvas.ctx.lineTo(0, 350);
+					canvas.ctx.lineTo(350, 0);
+					canvas.ctx.closePath();
+					canvas.ctx.stroke();
+
+					canvas.ctx.restore();
+					canvas.ctx.save();
+				},
+				start : function(style) {
+					// 共通設定
+					canvas.ctx.lineWidth = 3;
+					canvas.ctx.strokeStyle = style || "#808";
+
+					canvas.ctx.save();
+
+					timer.clear();
+					for (var i=0; i<=180; i+=10) {
+						setTimeout(this.draw, timer.next(), i);
+					}
+
+					setTimeout(flow.next, timer.next());
+				}
+			},
+
+			// テキスト
+			text : {
+				draw : function(text) {
+					canvas.ctx.font = "230px 'ＭＳ ゴシック'";
+					canvas.ctx.textAlign = "center";
+					canvas.ctx.textBaseline = "middle";
+					canvas.ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+				},
+				start : function(text, style) {
+					// 共通設定
+					canvas.ctx.fillStyle = style || "#fff";
+
+					timer.clear();
+					setTimeout(this.draw, timer.next(), text);
+					setTimeout(flow.next, timer.next());
+				}
+			}
+		};
+	</script>
+
+	<style>
+		body {
+			background-color: #FFFFFF;
+		}
+
+		section {
+			margin: 0 10px 20px;
+		}
+	</style>
+</head>
+<body>
+	<section>
+		<canvas id="canvas5" width="1200" height="700"></canvas>
+	</section>
+</body>
+</html>
